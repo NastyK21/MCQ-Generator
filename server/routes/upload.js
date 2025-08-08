@@ -2,7 +2,7 @@ import multer from 'fastify-multer';
 import fs from 'fs';
 import path from 'path';
 import { prisma } from '../utils/prisma.js';
-import pdfParse from 'pdf-parse';
+const pdfParse = (await import('pdf-parse')).default;
 import mammoth from 'mammoth';
 
 const upload = multer({ dest: 'uploads/' });

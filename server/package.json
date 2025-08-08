@@ -13,6 +13,12 @@
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio"
   },
+  "files": [
+    "index.js",
+    "routes/",
+    "utils/",
+    "node_modules/"
+  ],
   "keywords": [
     "mcq",
     "ai",

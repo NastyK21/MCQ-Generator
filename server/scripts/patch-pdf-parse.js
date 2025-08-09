@@ -3,20 +3,18 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// __dirname workaround in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path to pdf-parse's main file
 const pdfParsePath = path.resolve(__dirname, '../node_modules/pdf-parse/index.js');
 
 try {
   let content = fs.readFileSync(pdfParsePath, 'utf8');
 
-  // Replace any test/debug block trying to read a file
+  // Match any debug block starting with isDebugMode and ending at its closing brace
   const patchedContent = content.replace(
-    /if\s*\(isDebugMode\)\s*{[\s\S]*?}/,
-    '// DEBUG BLOCK REMOVED FOR DEPLOYMENT'
+    /if\s*\(\s*isDebugMode\s*\)[\s\S]*?\n}\s*\n?/gm,
+    '// DEBUG BLOCK REMOVED FOR DEPLOYMENT\n'
   );
 
   fs.writeFileSync(pdfParsePath, patchedContent, 'utf8');

@@ -2,152 +2,114 @@
 
 ---
 
-````markdown
-# MCQ Generation System
+# MCQ Generator
 
-A web-based platform to create, store, and manage Multiple Choice Questions (MCQs) with difficulty levels.  
-Built using **React** (frontend) and **Node.js + Express** (backend) with a database (MongoDB/PostgreSQL).
+A full-stack application for generating, storing, and serving multiple-choice questions with difficulty levels.
 
 ---
 
 ## Features
 
-- Create MCQs with **question**, **options**, **correct answer**, and **difficulty level**.
-- Difficulty options: `Easy`, `Medium`, `Hard`.
-- Store MCQs in a database with proper validation.
-- Retrieve and display MCQs with difficulty tags.
-- Responsive UI styled with Tailwind CSS.
+* Generate MCQs with AI-powered prompts.
+* Classify MCQs by difficulty: Easy, Medium, Hard.
+* Backend validation with PostgreSQL & Prisma.
+* Serve MCQs through REST API.
+* Frontend display with difficulty badges.
+* Deployable backend and frontend.
 
 ---
 
 ## Tech Stack
 
 **Frontend**
-- React (Vite)
-- Tailwind CSS
-- Axios (for API requests)
+
+* Vite + React
+* Tailwind CSS
 
 **Backend**
-- Node.js + Express
-- MongoDB / PostgreSQL (configurable)
-- Mongoose / Prisma (ORM depending on DB choice)
+
+* Node.js + Express
+* Prisma ORM
+* PostgreSQL
+
+**Deployment**
+
+* Render (Backend & Frontend)
+* Railway (Database)
 
 ---
 
-## Installation
+## Setup
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/your-username/mcq-generation-system.git
-cd mcq-generation-system
-````
-
-### 2. Install dependencies
-
-**Frontend**
+### 1. Clone Repository
 
 ```bash
-cd frontend
+git clone https://github.com/your-username/mcq-generator.git
+cd mcq-generator
+```
+
+### 2. Install Dependencies
+
+```bash
+cd client
+npm install
+cd ../api
 npm install
 ```
 
-**Backend**
+### 3. Environment Variables
 
-```bash
-cd backend
-npm install
+Create `.env` files for both frontend and backend.
+
+**Frontend (`client/.env`):**
+
 ```
+VITE_API_URL_LOCAL=your_local_backend_url
+VITE_API_URL=your_production_backend_url
+```
+
+**Backend (`api/.env`):**
+
+```
+DATABASE_URL=your_postgresql_connection_string
+```
+
+*(Do not commit `.env` files — ensure `.env` is in `.gitignore`)*
 
 ---
 
-## Configuration
+### 4. Development
 
-1. Create a `.env` file in the **backend** folder:
-
-```env
-PORT=5000
-MONGO_URI=mongodb://localhost:27017/mcqdb
-```
-
-2. Update database credentials as needed.
-
----
-
-## Running the Application
-
-**Backend**
+Run backend:
 
 ```bash
-cd backend
+cd api
 npm run dev
 ```
 
-**Frontend**
+Run frontend:
 
 ```bash
-cd frontend
+cd client
 npm run dev
 ```
 
-The frontend will run on **[http://localhost:5173](http://localhost:5173)** and backend on **[http://localhost:5000](http://localhost:5000)**.
-
 ---
 
-## API Endpoints
+### 5. Deployment
 
-### Create MCQ
-
-```
-POST /api/mcqs
-```
-
-**Body**
-
-```json
-{
-  "question": "What is 2+2?",
-  "options": ["2", "3", "4", "5"],
-  "answer": "4",
-  "difficulty": "Easy"
-}
-```
-
-### Get All MCQs
-
-```
-GET /api/mcqs
-```
-
-**Response**
-
-```json
-[
-  {
-    "_id": "64f99b2...",
-    "question": "What is 2+2?",
-    "options": ["2", "3", "4", "5"],
-    "answer": "4",
-    "difficulty": "Easy"
-  }
-]
-```
-
----
-
-## Difficulty Level Integration
-
-* **Frontend**: Added a dropdown to select difficulty while creating MCQs.
-* **Backend**: Updated schema/model to include `difficulty` with allowed values `Easy`, `Medium`, `Hard`.
-* Defaults to `Medium` if not provided.
+* Deploy backend to Render.
+* Deploy frontend to Render (or preferred hosting).
+* Use environment variables for API URLs — never hardcode them.
 
 ---
 
 ## License
 
-This project is licensed under the MIT License.
-
-```
+MIT License © 2025 Your Name
 
 ---
 
-```
+If you want, I can also **add a section for CORS setup** so people know how to handle both local and deployed URLs without exposing them. That way you don’t accidentally break production requests.
+
+Do you want me to include that?

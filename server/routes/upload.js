@@ -5,7 +5,11 @@ import { prisma } from '../utils/prisma.js';
 const pdfParse = (await import('pdf-parse')).default;
 import mammoth from 'mammoth';
 
-const upload = multer({ dest: 'uploads/' });
+// Multer with 30MB file size limit
+const upload = multer({
+  dest: 'uploads/',
+  limits: { fileSize: 30 * 1024 * 1024 } // 30MB
+});
 
 export default async function registerUploadRoutes(app) {
   // Ensure the uploads folder exists
@@ -20,23 +24,21 @@ export default async function registerUploadRoutes(app) {
         return reply.code(400).send({ error: 'No file uploaded' });
       }
 
-      // Validate file size (10MB limit)
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      // Manual validation (extra safety)
+      const maxSize = 30 * 1024 * 1024; // 30MB
       if (file.size > maxSize) {
-        fs.unlinkSync(file.path); // Cleanup
-        return reply.code(400).send({ error: 'File too large. Maximum size is 10MB.' });
+        fs.unlinkSync(file.path);
+        return reply.code(400).send({ error: 'File too large. Maximum size is 30MB.' });
       }
 
       const ext = path.extname(file.originalname).toLowerCase();
-      let content = '';
-
-      // Validate file type
       const allowedTypes = ['.pdf', '.docx', '.txt'];
       if (!allowedTypes.includes(ext)) {
-        fs.unlinkSync(file.path); // Cleanup
+        fs.unlinkSync(file.path);
         return reply.code(400).send({ error: 'Unsupported file type. Only PDF, DOCX, and TXT files are supported.' });
       }
 
+      let content = '';
       try {
         if (ext === '.pdf') {
           const dataBuffer = fs.readFileSync(file.path);
@@ -49,13 +51,11 @@ export default async function registerUploadRoutes(app) {
           content = fs.readFileSync(file.path, 'utf-8');
         }
 
-        // Validate content
         if (!content || content.trim().length === 0) {
-          fs.unlinkSync(file.path); // Cleanup
+          fs.unlinkSync(file.path);
           return reply.code(400).send({ error: 'No readable text found in the uploaded file.' });
         }
 
-        // Trim and clean content
         content = content.trim().replace(/\s+/g, ' ');
 
         const doc = await prisma.document.create({
@@ -65,24 +65,24 @@ export default async function registerUploadRoutes(app) {
           },
         });
 
-        fs.unlinkSync(file.path); // Cleanup temp file
+        fs.unlinkSync(file.path);
         reply.send({ id: doc.id, message: 'Upload and parsing successful' });
 
       } catch (parseError) {
-        fs.unlinkSync(file.path); // Cleanup on parse error
+        fs.unlinkSync(file.path);
         app.log.error('File parsing error:', parseError);
         return reply.code(400).send({ error: 'Failed to parse file content. Please ensure the file is not corrupted.' });
       }
 
     } catch (err) {
       app.log.error('Upload error:', err);
-      
-      // Cleanup temp file if it exists
-      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      if (req.file?.path && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
-      
-      reply.code(500).send({ error: 'Internal server error', details: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred' });
+      reply.code(500).send({
+        error: 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred'
+      });
     }
   });
 }

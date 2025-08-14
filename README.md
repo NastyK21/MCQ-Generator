@@ -110,6 +110,5 @@ MIT License © 2025 Your Name
 
 ---
 
-If you want, I can also **add a section for CORS setup** so people know how to handle both local and deployed URLs without exposing them. That way you don’t accidentally break production requests.
 
-Do you want me to include that?
+

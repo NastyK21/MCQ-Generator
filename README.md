@@ -4,111 +4,150 @@
 
 # MCQ Generator
 
-A full-stack application for generating, storing, and serving multiple-choice questions with difficulty levels.
-
----
+A full-stack application that generates multiple-choice questions from uploaded documents using AI, with user authentication and quiz history tracking.
 
 ## Features
 
-* Generate MCQs with AI-powered prompts.
-* Classify MCQs by difficulty: Easy, Medium, Hard.
-* Backend validation with PostgreSQL & Prisma.
-* Serve MCQs through REST API.
-* Frontend display with difficulty badges.
-* Deployable backend and frontend.
-
----
+- **Document Upload**: Support for PDF, DOC, DOCX, and TXT files
+- **AI-Powered MCQ Generation**: Uses Google Gemini and Groq AI to generate questions
+- **User Authentication**: Secure user registration and login system
+- **Quiz History**: Track and review your quiz performance over time
+- **Difficulty Levels**: Generate questions with specific difficulty (Easy, Medium, Hard, or Mixed)
+- **Responsive UI**: Modern, mobile-friendly interface built with React and Tailwind CSS
 
 ## Tech Stack
 
-**Frontend**
+### Backend
+- **Fastify** - High-performance web framework
+- **Prisma** - Database ORM
+- **PostgreSQL** - Database
+- **JWT** - Authentication
+- **bcryptjs** - Password hashing
 
-* Vite + React
-* Tailwind CSS
+### Frontend
+- **React 19** - UI framework
+- **Tailwind CSS** - Styling
+- **Axios** - HTTP client
+- **Context API** - State management
 
-**Backend**
+## Getting Started
 
-* Node.js + Express
-* Prisma ORM
-* PostgreSQL
+### Prerequisites
+- Node.js 18+
+- PostgreSQL database
+- Google Gemini API key
+- Groq API key
 
-**Deployment**
+### Backend Setup
 
-* Render (Backend & Frontend)
-* Railway (Database)
+1. Navigate to the server directory:
+   ```bash
+   cd server
+   ```
 
----
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## Setup
+3. Set up environment variables:
+   ```bash
+   cp env.example .env
+   ```
+   
+   Update `.env` with your configuration:
+   ```
+   DATABASE_URL="postgresql://username:password@localhost:5432/mcq_generator"
+   JWT_SECRET="your-secret-key"
+   GEMINI_API_KEY="your-gemini-api-key"
+   GROQ_API_KEY="your-groq-api-key"
+   ```
 
-### 1. Clone Repository
+4. Set up the database:
+   ```bash
+   npm run migrate:deploy
+   npm run prisma:generate
+   ```
 
-```bash
-git clone https://github.com/your-username/mcq-generator.git
-cd mcq-generator
-```
+5. Start the server:
+   ```bash
+   npm run dev
+   ```
 
-### 2. Install Dependencies
+### Frontend Setup
 
-```bash
-cd client
-npm install
-cd ../api
-npm install
-```
+1. Navigate to the client directory:
+   ```bash
+   cd client
+   ```
 
-### 3. Environment Variables
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Create `.env` files for both frontend and backend.
+3. Set up environment variables:
+   ```bash
+   cp env.example .env
+   ```
+   
+   Update `.env` with your API URL:
+   ```
+   VITE_API_URL="http://localhost:3001"
+   ```
 
-**Frontend (`client/.env`):**
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-```
-VITE_API_URL_LOCAL=your_local_backend_url
-VITE_API_URL=your_production_backend_url
-```
+## Usage
 
-**Backend (`api/.env`):**
+1. **Register/Login**: Create an account or sign in to access the application
+2. **Upload Document**: Upload a PDF, DOC, DOCX, or TXT file
+3. **Generate MCQs**: Choose difficulty level and generate questions
+4. **Take Quiz**: Answer the generated multiple-choice questions
+5. **View History**: Review your quiz performance and track progress
 
-```
-DATABASE_URL=your_postgresql_connection_string
-```
+## API Endpoints
 
-*(Do not commit `.env` files — ensure `.env` is in `.gitignore`)*
+### Authentication
+- `POST /api/users/register` - User registration
+- `POST /api/users/login` - User login
+- `GET /api/users/profile` - Get user profile (protected)
 
----
+### MCQ History
+- `POST /api/mcq-history` - Save quiz answer (protected)
+- `GET /api/mcq-history` - Get user's quiz history (protected)
 
-### 4. Development
+### Document Processing
+- `POST /upload` - Upload document
+- `POST /generate-mcq/:docId` - Generate MCQs from document
 
-Run backend:
+## Database Schema
 
-```bash
-cd api
-npm run dev
-```
+The application uses Prisma with the following main models:
+- **User** - User accounts and authentication
+- **Document** - Uploaded documents
+- **MCQ** - Generated multiple-choice questions
+- **MCQHistory** - User quiz performance tracking
 
-Run frontend:
+## Security Features
 
-```bash
-cd client
-npm run dev
-```
+- JWT-based authentication
+- Password hashing with bcrypt
+- Protected API endpoints
+- CORS configuration
+- Input validation and sanitization
 
----
+## Contributing
 
-### 5. Deployment
-
-* Deploy backend to Render.
-* Deploy frontend to Render (or preferred hosting).
-* Use environment variables for API URLs — never hardcode them.
-
----
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## License
 
-MIT License © 2025 Your Name
-
----
-
-
-
+This project is licensed under the ISC License.

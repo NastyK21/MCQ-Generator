@@ -1,24 +1,54 @@
 import React, { useState } from "react";
+import { useAuth } from "../contexts/AuthContext.jsx";
+import api from "../api.js";
 
-export default function MCQQuiz({ questions }) {
+export default function MCQQuiz({ questions, onQuizComplete }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [quizCompleted, setQuizCompleted] = useState(false);
+  const { token } = useAuth();
 
   const currentQuestionRaw = questions[currentIndex];
   const currentQuestion = normalizeQuestion(currentQuestionRaw);
 
-  const handleOptionClick = (option) => {
+  const saveToHistory = async (question, userAnswer, correctAnswer, isCorrect) => {
+    if (!token) return; // Don't save if user is not authenticated
+    
+    try {
+      await api.post('/api/mcq-history', {
+        question,
+        userAnswer,
+        correctAnswer,
+        isCorrect
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error('Failed to save to history:', error);
+      // Don't show error to user, just log it
+    }
+  };
+
+  const handleOptionClick = async (option) => {
     if (showAnswer) return; // Prevent multiple clicks
 
     setSelectedOption(option);
     setShowAnswer(true);
 
-    if (option === currentQuestion.answer) {
+    const isCorrect = option === currentQuestion.answer;
+    if (isCorrect) {
       setScore((prev) => prev + 1);
     }
+
+    // Save to history
+    await saveToHistory(
+      currentQuestion.question,
+      option,
+      currentQuestion.answer,
+      isCorrect
+    );
   };
 
   const handleNext = () => {
@@ -28,6 +58,10 @@ export default function MCQQuiz({ questions }) {
       setCurrentIndex((prev) => prev + 1);
     } else {
       setQuizCompleted(true);
+      // Call the callback when quiz is completed
+      if (onQuizComplete) {
+        onQuizComplete();
+      }
     }
   };
 

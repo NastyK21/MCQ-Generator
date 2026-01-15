@@ -1,19 +1,18 @@
 import React, { useState } from "react";
+import { useAuth } from "../contexts/AuthContext.jsx";
 import api from "../api.js";
-import MCQQuiz from "./mcqQuiz";
 
-export default function DocumentUpload() {
+export default function DocumentUpload({ onQuestionsGenerated }) {
+  const { user, token } = useAuth();
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(""); // "success", "error", "info"
   const [docId, setDocId] = useState(null);
-  const [mcqs, setMcqs] = useState([]);
-  const [quizStarted, setQuizStarted] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState("mixed");
 
-  const handleUpload = async () => {
+  const handleTestUpload = async () => {
     if (!file) {
       setMessage("Please select a file to upload.");
       setMessageType("error");
@@ -28,16 +27,61 @@ export default function DocumentUpload() {
     formData.append("file", file);
 
     try {
+      const res = await api.post("/upload/test", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      setMessage(`✅ Test upload successful! File: ${res.data.filename}, Content length: ${res.data.contentLength}`);
+      setMessageType("success");
+    } catch (err) {
+      console.error(err);
+      const errorMessage = err.response?.data?.error || err.message || "Test upload failed. Please try again.";
+      setMessage(`❌ ${errorMessage}`);
+      setMessageType("error");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setMessage("Please select a file to upload.");
+      setMessageType("error");
+      return;
+    }
+
+    // Debug authentication state
+    console.log("Auth state:", { user, token, isAuthenticated: !!token });
+    
+    if (!token) {
+      setMessage("Please log in to upload documents.");
+      setMessageType("error");
+      return;
+    }
+
+    // Check if we have a valid user object or at least a token
+    if (!user || !user.id) {
+      console.log("User object is empty, but token exists. Trying to upload with token only.");
+    }
+
+    setIsUploading(true);
+    setMessage("");
+    setMessageType("");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
       const res = await api.post("/upload", formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
         },
       });
       setMessage(`✅ Upload successful! Document ID: ${res.data.id}`);
       setMessageType("success");
       setDocId(res.data.id);
-      setMcqs([]);
-      setQuizStarted(false);
     } catch (err) {
       console.error(err);
       const errorMessage = err.response?.data?.error || err.message || "Upload failed. Please try again.";
@@ -64,13 +108,20 @@ export default function DocumentUpload() {
         difficulty: selectedDifficulty === "mixed" ? null : selectedDifficulty
       };
 
-      const res = await api.post(`/generate-mcq/${docId}`, requestData);
+      const res = await api.post(`/generate-mcq/${docId}`, requestData, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (res.data.mcqs && res.data.mcqs.length > 0) {
-        setMcqs(res.data.mcqs);
-        setQuizStarted(true);
         const difficultyText = selectedDifficulty === "mixed" ? "mixed difficulty" : selectedDifficulty;
         setMessage(`✅ Generated ${res.data.mcqs.length} ${difficultyText} MCQs successfully!`);
         setMessageType("success");
+        
+        // Call the callback to pass questions to parent component
+        if (onQuestionsGenerated) {
+          onQuestionsGenerated(res.data.mcqs);
+        }
       } else {
         setMessage("No MCQs generated from this document.");
         setMessageType("error");
@@ -161,8 +212,30 @@ export default function DocumentUpload() {
           </div>
         </div>
 
-        {/* Upload Button */}
-        <div className="flex justify-center mb-6">
+        {/* Upload Buttons */}
+        <div className="flex justify-center space-x-4 mb-6">
+          <button
+            onClick={handleTestUpload}
+            disabled={!file || isUploading}
+            className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+              !file || isUploading
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-green-600 text-white hover:bg-green-700 active:bg-green-800"
+            }`}
+          >
+            {isUploading ? (
+              <div className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Testing...
+              </div>
+            ) : (
+              "Test Upload"
+            )}
+          </button>
+          
           <button
             onClick={handleUpload}
             disabled={!file || isUploading}
@@ -259,11 +332,7 @@ export default function DocumentUpload() {
       </div>
 
       {/* Quiz Section */}
-      {quizStarted && mcqs.length > 0 && (
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <MCQQuiz questions={mcqs} />
-        </div>
-      )}
+      {/* The MCQQuiz component is now passed as a prop and will render itself */}
     </div>
   );
 }

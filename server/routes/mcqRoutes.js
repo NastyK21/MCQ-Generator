@@ -1,142 +1,207 @@
-// routes/mcqRoutes.js
-import { prisma } from '../utils/prisma.js';
-import { generateMCQsFromText } from '../services/mcqgenerator.js';
+import prisma from "../utils/prisma.js";
+import { generateMCQsFromText } from "../services/mcqgenerator.js";
+import { semanticSearch } from "../services/vectorSearch.js";
 
-export default async function registerMCQRoutes(app) {
-  // Generate MCQs
-  app.post("/generate-mcq/:id", async (req, reply) => {
-    const docId = parseInt(req.params.id);
-    const { difficulty } = req.body; // Get difficulty from request body
-
-    // Validate document ID
-    if (isNaN(docId) || docId <= 0) {
-      return reply.code(400).send({ error: "Invalid document ID" });
-    }
-
-    // Validate difficulty
-    const validDifficulties = ["easy", "medium", "hard"];
-    const selectedDifficulty = difficulty?.toLowerCase();
-    
-    if (selectedDifficulty && !validDifficulties.includes(selectedDifficulty)) {
-      return reply.code(400).send({ 
-        error: "Invalid difficulty level. Must be 'easy', 'medium', or 'hard'" 
-      });
-    }
-
-    try {
-      const document = await prisma.document.findUnique({
-        where: { id: docId },
-      });
-
-      if (!document) {
-        return reply.code(404).send({ error: "Document not found" });
-      }
-
-      // Validate document content
-      if (!document.content || document.content.trim().length === 0) {
-        return reply.code(400).send({ error: "Document has no readable content" });
-      }
-
-      const mcqs = await generateMCQsFromText(document.content, selectedDifficulty);
-
-      if (!Array.isArray(mcqs) || mcqs.length === 0) {
-        return reply.code(400).send({ error: "No MCQs generated from this document" });
-      }
-
-      // Validate MCQ structure before saving
-      const validMcqs = mcqs.filter(mcq => {
-        return mcq.question && 
-               Array.isArray(mcq.options) && 
-               mcq.options.length === 4 && 
-               mcq.answer && 
-               mcq.options.includes(mcq.answer);
-      });
-
-      if (validMcqs.length === 0) {
-        return reply.code(400).send({ error: "No valid MCQs generated" });
-      }
-
-      await prisma.mCQ.createMany({
-        data: validMcqs.map((mcq) => ({
-          question: mcq.question,
-          options: mcq.options,
-          answer: mcq.answer,
-          difficulty: mcq.difficulty || selectedDifficulty || "medium", // Use selected difficulty or default
-          documentId: docId,
-        })),
-      });
-
-      return reply.send({ 
-        message: "MCQs generated successfully", 
-        mcqs: validMcqs,
-        selectedDifficulty: selectedDifficulty || "mixed"
-      });
-    } catch (err) {
-      app.log.error("Error generating/saving MCQs:", err);
-      return reply.code(500).send({ error: "MCQ generation failed" });
-    }
-  });
-
-  // Fetch MCQs by document ID
-  app.get("/mcqs/:id", async (req, reply) => {
-    const docId = parseInt(req.params.id);
-
-    if (isNaN(docId) || docId <= 0) {
-      return reply.code(400).send({ error: "Invalid document ID" });
-    }
-
-    try {
-      const mcqs = await prisma.mCQ.findMany({
-        where: { documentId: docId },
-        orderBy: [
-          { difficulty: 'asc' }, // Order by difficulty: easy, medium, hard
-          { id: 'asc' }
-        ]
-      });
-
-      if (!mcqs.length) {
-        return reply.code(404).send({ error: "No MCQs found for this document" });
-      }
-
-      return reply.send({ documentId: docId, mcqs });
-    } catch (err) {
-      app.log.error("Error fetching MCQs:", err);
-      return reply.code(500).send({ error: "Failed to fetch MCQs" });
-    }
-  });
-
-  // Fetch MCQs by document ID and difficulty
-  app.get("/mcqs/:id/difficulty/:difficulty", async (req, reply) => {
-    const docId = parseInt(req.params.id);
-    const difficulty = req.params.difficulty.toLowerCase();
-
-    if (isNaN(docId) || docId <= 0) {
-      return reply.code(400).send({ error: "Invalid document ID" });
-    }
-
-    // Validate difficulty
-    const validDifficulties = ["easy", "medium", "hard"];
-    if (!validDifficulties.includes(difficulty)) {
-      return reply.code(400).send({ error: "Invalid difficulty level" });
-    }
-
+export default async function mcqRoutes(fastify) {
+  /**
+   * @route GET /mcqs
+   * @desc Get all MCQs for the logged-in user
+   * @access Private
+   */
+  fastify.get("/mcqs", { preHandler: fastify.authenticate }, async (request, reply) => {
     try {
       const mcqs = await prisma.mCQ.findMany({
         where: { 
-          documentId: docId,
-          difficulty: difficulty
+          document: {
+            userId: request.user.id
+          }
         },
-        orderBy: { id: 'asc' }
+        include: { document: true },
       });
 
-      if (!mcqs.length) {
-        return reply.code(404).send({ error: `No ${difficulty} MCQs found for this document` });
+      return reply.send(mcqs);
+    } catch (error) {
+      console.error("Error fetching MCQs:", error);
+      return reply.status(500).send({ error: "Failed to fetch MCQs" });
+    }
+  });
+
+  /**
+   * @route GET /mcqs/:id
+   * @desc Get a single MCQ by ID
+   * @access Private
+   */
+  fastify.get("/mcqs/:id", { preHandler: fastify.authenticate }, async (request, reply) => {
+    try {
+      const mcq = await prisma.mCQ.findFirst({
+        where: {
+          id: parseInt(request.params.id, 10),
+          document: {
+            userId: request.user.id
+          }
+        },
+        include: { document: true },
+      });
+
+      if (!mcq) {
+        return reply.status(404).send({ error: "MCQ not found" });
       }
 
-      return reply.send({ documentId: docId, difficulty, mcqs });
-    } catch (err) {
-      app.log.error("Error fetching MCQs by difficulty:", err);
-      return reply.code(500).send({ error: "Failed to fetch MCQs" });
+      return reply.send(mcq);
+    } catch (error) {
+      console.error("Error fetching MCQ:", error);
+      return reply.status(500).send({ error: "Failed to fetch MCQ" });
+    }
+  });
+
+  /**
+   * @route POST /mcqs
+   * @desc Create a new MCQ for a document
+   * @access Private
+   */
+  fastify.post("/mcqs", { preHandler: fastify.authenticate }, async (request, reply) => {
+    try {
+      const { question, options, answer, difficulty, documentId } = request.body;
+
+      // Verify document belongs to user
+      const document = await prisma.document.findFirst({
+        where: {
+          id: documentId,
+          userId: request.user.id
+        }
+      });
+
+      if (!document) {
+        return reply.status(404).send({ error: "Document not found or access denied" });
+      }
+
+      const mcq = await prisma.mCQ.create({
+        data: {
+          question,
+          options,
+          answer,
+          difficulty,
+          documentId,
+        },
+      });
+
+      return reply.status(201).send(mcq);
+    } catch (error) {
+      console.error("Error creating MCQ:", error);
+      return reply.status(500).send({ error: "Failed to create MCQ" });
+    }
+  });
+
+  /**
+   * @route DELETE /mcqs/:id
+   * @desc Delete an MCQ by ID
+   * @access Private
+   */
+  fastify.delete("/mcqs/:id", { preHandler: fastify.authenticate }, async (request, reply) => {
+    try {
+      // First verify the MCQ belongs to the user through document relation
+      const mcq = await prisma.mCQ.findFirst({
+        where: {
+          id: parseInt(request.params.id, 10),
+          document: {
+            userId: request.user.id
+          }
+        }
+      });
+
+      if (!mcq) {
+        return reply.status(404).send({ error: "MCQ not found or access denied" });
+      }
+
+      await prisma.mCQ.delete({
+        where: {
+          id: parseInt(request.params.id, 10),
+        },
+      });
+
+      return reply.send({ message: "MCQ deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting MCQ:", error);
+      return reply.status(500).send({ error: "Failed to delete MCQ" });
+    }
+  });
+
+  /**
+   * @route POST /generate-mcq/:docId
+   * @desc Generate MCQs from a document using semantic search for context
+   * @access Private
+   */
+  fastify.post("/generate-mcq/:docId", { preHandler: fastify.authenticate }, async (request, reply) => {
+    try {
+      const { docId } = request.params;
+      const { difficulty, useSemanticSearch = true } = request.body;
+
+      // Get the main document
+      const mainDocument = await prisma.document.findUnique({
+        where: { 
+          id: parseInt(docId, 10),
+          userId: request.user.id 
+        },
+      });
+
+      if (!mainDocument) {
+        return reply.status(404).send({ error: "Document not found" });
+      }
+
+      let contentForGeneration = mainDocument.content;
+
+      // If semantic search is enabled, find similar documents for better context
+      if (useSemanticSearch && mainDocument.embedding) {
+        console.log("Using semantic search to enhance MCQ generation context...");
+        try {
+          const similarDocuments = await semanticSearch(mainDocument.content, request.user.id, 3);
+          
+          if (similarDocuments.length > 0) {
+            // Combine content from similar documents for richer context
+            const combinedContent = [
+              mainDocument.content,
+              ...similarDocuments.map(doc => doc.content)
+            ].join("\n\n---\n\n");
+            
+            contentForGeneration = combinedContent;
+            console.log(`Enhanced context with ${similarDocuments.length} similar documents`);
+          }
+        } catch (semanticError) {
+          console.warn("Semantic search failed, falling back to document-only generation:", semanticError.message);
+          // Continue with just the main document content
+        }
+      }
+
+      // Generate MCQs using the AI service
+      const generatedMCQs = await generateMCQsFromText(contentForGeneration, difficulty);
+
+      if (!generatedMCQs || generatedMCQs.length === 0) {
+        return reply.status(400).send({ error: "No MCQs could be generated from this document" });
+      }
+
+      // Save generated MCQs to database
+      const createdMCQs = [];
+      for (const mcqData of generatedMCQs) {
+        const mcq = await prisma.mCQ.create({
+          data: {
+            question: mcqData.question,
+            options: mcqData.options,
+            answer: mcqData.answer,
+            difficulty: mcqData.difficulty,
+            documentId: parseInt(docId, 10),
+          },
+        });
+        createdMCQs.push(mcq);
+      }
+
+      console.log(`Generated and saved ${createdMCQs.length} MCQs for document ${docId}`);
+      return reply.status(201).send({ 
+        mcqs: createdMCQs,
+        message: `Successfully generated ${createdMCQs.length} MCQs` 
+      });
+    } catch (error) {
+      console.error("Error generating MCQs:", error);
+      return reply.status(500).send({ error: "Failed to generate MCQs", details: error.message });
     }
   });
 }

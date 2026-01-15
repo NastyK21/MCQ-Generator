@@ -3,38 +3,63 @@ import multipart from '@fastify/multipart';
 import cors from '@fastify/cors';
 import dotenv from 'dotenv';
 
-import registerUploadRoutes from './routes/upload.js';
-import registerMcqRoutes from './routes/mcqRoutes.js';
+import uploadRoutes from './routes/upload.js';
+import mcqRoutes from './routes/mcqRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import mcqHistoryRoutes from './routes/mcqHistory.js';
+import documentRoutes from './routes/documentRoutes.js';
+import vectorRoutes from './routes/vectorRoutes.js';
+import authPlugin from './plugins/auth.js';
 
 dotenv.config();
 
-const app = Fastify();
+const app = Fastify({
+  logger: true,
+  bodyLimit: 1048576, // 1MB
+});
 
-// Parse allowed origins from env (comma-separated list)
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : ['*'];
-
-// CORS setup
+// CORS setup - allow all origins for development
 await app.register(cors, {
-  origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Not allowed by CORS'), false);
-    }
-  }
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 });
 
 // Multipart support
-await app.register(multipart);
+await app.register(multipart, {
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 1
+  }
+});
+
+// Register authentication plugin
+await app.register(authPlugin);
+
+// Verify authenticate method is available
+console.log('Authenticate method available:', typeof app.authenticate === 'function');
 
 // Routes
-await registerUploadRoutes(app);
-await registerMcqRoutes(app);
+await app.register(uploadRoutes);
+await app.register(mcqRoutes);
+await app.register(userRoutes);
+await app.register(mcqHistoryRoutes);
+await app.register(documentRoutes);
+await app.register(vectorRoutes);
 
 app.get('/', async () => {
   return { status: 'MCQ System API is live' };
+});
+
+app.get('/test', async () => {
+  return { message: 'Server is working correctly' };
+});
+
+// Test authentication endpoint
+app.get('/test-auth', { preHandler: app.authenticate }, async (request, reply) => {
+  console.log('Test auth endpoint - request.user:', request.user);
+  return { user: request.user, message: 'Authentication working' };
 });
 
 const PORT = process.env.PORT || 3001;

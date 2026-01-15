@@ -2,7 +2,7 @@ import groq from "../utils/groq.js";
 
 // Constants for token management
 const MAX_TOKENS_PER_REQUEST = 4000; // Conservative limit to stay under 6000 TPM
-const MAX_CHARACTERS = 30000; // Safeguard for extremely large texts
+const MAX_CHARACTERS = 30000; // Maximum text length for MCQ generation
 const CHUNK_OVERLAP = 200; // Characters to overlap between chunks for context
 
 export async function generateMCQsFromText(text, selectedDifficulty = null) {
@@ -80,8 +80,11 @@ Text chunk:
 """${text}"""
 `;
 
+  // Use environment variable for model or default to a supported model
+  const model = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+  
   const response = await groq.chat.completions.create({
-    model: "llama3-70b-8192",
+    model: model, // Updated from decommissioned llama3-70b-8192
     messages: [{ role: "user", content: prompt }],
     temperature: 0,
   });

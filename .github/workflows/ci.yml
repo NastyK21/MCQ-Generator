@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  server-ci:
+    name: Server CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint if available
+        run: |
+          if node -e "const p=require('./package.json'); process.stdout.write(p.scripts && p.scripts.lint ? 'yes' : 'no')" | grep -q yes; then
+            npm run lint;
+          else
+            echo "No lint script defined for server";
+          fi
+
+      - name: Build / generate Prisma client
+        run: npm run build
